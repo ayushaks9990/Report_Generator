@@ -1,19 +1,5 @@
 """
 scheduler.py
-
-Enterprise Report Scheduler
-Supports:
-
-✔ Daily automation
-✔ Immediate testing
-✔ Report generation
-✔ Visualizations
-✔ HTML Email Delivery
-✔ Telegram Delivery
-✔ Logging
-✔ Retry Logic
-✔ File Cleanup
-✔ Run History
 """
 
 import os
