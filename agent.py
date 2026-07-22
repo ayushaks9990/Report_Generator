@@ -1,4 +1,6 @@
+
 from __future__ import annotations
+
 from typing import Optional, Any
 import os
 import time
@@ -184,6 +186,39 @@ Rewrite the report to fix the issues while keeping it professional, clear, and a
 Return only the revised report."""
 
 
+def _build_analyst_revision_prompt(
+    query: str,
+    context: str,
+    analyst_findings: str,
+    critic_feedback: str,
+    analysis_focus: Optional[str] = None
+) -> str:
+    analysis_focus = (analysis_focus or "").strip()
+    focus_block = f"\n\nUser focus / special instruction:\n{analysis_focus}\n" if analysis_focus else ""
+
+    return f"""You are a senior data analyst.
+
+The critic reviewed your previous analysis and found issues. Revise your analysis findings directly.
+
+Original Query: {query}{focus_block}
+
+Retrieved Context:
+{context}
+
+Your Previous Analyst Findings:
+{analyst_findings}
+
+Critic Feedback:
+{critic_feedback}
+
+Instructions:
+- Fix factual gaps, weak reasoning, missing trends, or unsupported claims
+- Stay grounded only in the retrieved context
+- Keep the analysis clear, precise, and data-driven
+- Return only the revised analyst findings
+"""
+
+
 def _parse_status(text: str) -> str:
     upper = (text or "").upper()
     if "STATUS: APPROVED" in upper or upper.strip() == "APPROVED":
@@ -332,7 +367,7 @@ async def _autogen_multiagent_pipeline(
     """
     AutoGen-based pipeline using AssistantAgent.run() (current AgentChat API).
     Sequence:
-      Retriever -> Analyst -> Writer -> Critic -> optional Revision -> Final
+      Retriever -> Analyst -> Writer -> Critic -> Analyst Revision -> Writer -> Critic
     """
     retrieval_query = _build_query_with_focus(query, analysis_focus)
 
@@ -381,16 +416,19 @@ async def _autogen_multiagent_pipeline(
                 ),
             )
 
+            # 1) Analyst creates initial findings
             analysis_prompt = _build_analysis_prompt(query, context, analysis_focus=analysis_focus)
             analyst_findings = await _run_autogen_agent(analyst, analysis_prompt)
             if not analyst_findings:
                 raise RuntimeError("AutoGen analyst returned empty output")
 
+            # 2) Writer creates initial report
             report_prompt = _build_report_prompt(query, analyst_findings, analysis_focus=analysis_focus)
             draft_report = await _run_autogen_agent(writer, report_prompt)
             if not draft_report:
                 raise RuntimeError("AutoGen writer returned empty output")
 
+            # 3) Critic reviews the report
             critic_prompt = _build_critic_prompt(query, analyst_findings, draft_report, analysis_focus=analysis_focus)
             critic_feedback = await _run_autogen_agent(critic, critic_prompt)
             if not critic_feedback:
@@ -399,19 +437,26 @@ async def _autogen_multiagent_pipeline(
             status = _parse_status(critic_feedback)
             final_report = draft_report.strip()
 
+            # 4) If critic rejects, send feedback back to analyst first
             if status != "APPROVED":
-                revision_prompt = _build_revision_prompt(
+                analyst_revision_prompt = _build_analyst_revision_prompt(
                     query=query,
+                    context=context,
                     analyst_findings=analyst_findings,
-                    draft_report=draft_report,
                     critic_feedback=critic_feedback,
                     analysis_focus=analysis_focus,
                 )
-                revised_report = await _run_autogen_agent(writer, revision_prompt)
-                if revised_report:
-                    final_report = revised_report.strip()
+                revised_analyst_findings = await _run_autogen_agent(analyst, analyst_revision_prompt)
+                if revised_analyst_findings:
+                    analyst_findings = revised_analyst_findings.strip()
 
-                    # one more critic pass after revision
+                    # 5) Writer rebuilds report from revised analyst findings
+                    report_prompt = _build_report_prompt(query, analyst_findings, analysis_focus=analysis_focus)
+                    revised_report = await _run_autogen_agent(writer, report_prompt)
+                    if revised_report:
+                        final_report = revised_report.strip()
+
+                    # 6) Critic checks again
                     critic_feedback = await _run_autogen_agent(
                         critic,
                         _build_critic_prompt(query, analyst_findings, final_report, analysis_focus=analysis_focus),
@@ -556,7 +601,7 @@ def generate_report_with_autogen_multiagent(
     Best-effort multi-agent report generation.
 
     Preferred path:
-      AutoGen AgentChat AssistantAgent.run()  -> Analyst -> Writer -> Critic -> optional revision
+      AutoGen AgentChat AssistantAgent.run()  -> Analyst -> Writer -> Critic -> Analyst revision -> Writer -> Critic
 
     Fallback:
       Groq chat completions path with the same analyst/writer/critic stages
@@ -614,19 +659,24 @@ def generate_report_with_autogen_multiagent(
     if not critic_feedback:
         critic_feedback = "STATUS: UNKNOWN"
 
+    # critic -> analyst revision -> writer rebuild -> critic recheck
     if _parse_status(critic_feedback) != "APPROVED":
-        revision_prompt = _build_revision_prompt(
+        analyst_revision_prompt = _build_analyst_revision_prompt(
             query=query,
+            context=context,
             analyst_findings=analyst_findings,
-            draft_report=final_report,
             critic_feedback=critic_feedback,
             analysis_focus=analysis_focus,
         )
-        revised_report = _groq_chat(revision_prompt, system_message=writer_system, model=MODEL_NAME)
-        if revised_report:
-            final_report = revised_report.strip()
+        revised_analyst_findings = _groq_chat(analyst_revision_prompt, system_message=analyst_system, model=MODEL_NAME)
+        if revised_analyst_findings:
+            analyst_findings = revised_analyst_findings.strip()
 
-            # one more critic check after revision
+            report_prompt = _build_report_prompt(query, analyst_findings, analysis_focus=analysis_focus)
+            revised_report = _groq_chat(report_prompt, system_message=writer_system, model=MODEL_NAME)
+            if revised_report:
+                final_report = revised_report.strip()
+
             critic_feedback = _groq_chat(
                 _build_critic_prompt(query, analyst_findings, final_report, analysis_focus=analysis_focus),
                 system_message=critic_system,
