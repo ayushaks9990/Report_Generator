@@ -4,18 +4,16 @@ import time
 import mimetypes
 import logging
 import traceback
-import smtplib
+import smtplib # Connects to an SMTP server (e.g., Gmail) and sends emails.
 
 from datetime import datetime
 
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
-from email.mime.application import MIMEApplication
-from email.mime.image import MIMEImage
-
+from email.mime.text import MIMEText # Creates plain text or HTML email content.
+from email.mime.multipart import MIMEMultipart # Creates an email with multiple parts (text, HTML, attachments, images).
+from email.mime.application import MIMEApplication # Attaches general files like PDFs, TXT, DOCX, HTML, ZIP, etc.
+from email.mime.image import MIMEImage # Embeds or attaches image files (PNG, JPEG, GIF, etc.).
 from config import GMAIL_USER, GMAIL_APP_PASSWORD, RECIPIENT_EMAIL
 from html_email_template import create_html_email
-
 
 logger = logging.getLogger(__name__)
 
