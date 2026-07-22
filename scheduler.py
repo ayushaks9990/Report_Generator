@@ -1,7 +1,6 @@
 """
 scheduler.py
 """
-
 import os
 import sys
 import time
@@ -11,7 +10,7 @@ import asyncio
 from pathlib import Path
 from datetime import datetime, timedelta
 
-import pytz
+import pytz # Then The for time zones
 import schedule
 
 from config import (
