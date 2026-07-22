@@ -1,4 +1,4 @@
-from __future__ import annotations
+from __future__ import annotations # Forward class definition
 from typing import Any, Dict, List, Optional, Union, Tuple
 import json
 import logging
@@ -14,9 +14,9 @@ try:
     from vector_db import query_vectordb, initialize_chromadb  # type: ignore
 except Exception:
     query_vectordb = None
+    
     initialize_chromadb = None
     logger.debug("vector_db adapter not found; retrieval functions will return placeholders.")
-
 
 # -------------------------
 # Configuration helpers
@@ -62,7 +62,7 @@ def _safe_currency(val: Any) -> str:
 # -------------------------
 # Vector DB compatibility layer
 # -------------------------
-
+#Then The chromadb initalize return dict string have to normalize
 def _normalize_collection_result(init_result: Any) -> Any:
     """Extract a usable collection object from various initializer return shapes."""
     if init_result is None:
@@ -80,12 +80,11 @@ def _normalize_collection_result(init_result: Any) -> Any:
                 return init_result[key]
     return init_result
 
-
+# Tries Then different ways of calling query_vectordb() to ensure compatibility with different vector database implementations.
 def _call_query_vectordb(collection: Any, query: str, n_results: int, filter_dict: Optional[Dict[str, Any]] = None) -> Any:
     """Call query_vectordb with the adapter signature it supports."""
     if query_vectordb is None:
         raise RuntimeError("vector_db.query_vectordb is not available")
-
     last_exc: Optional[Exception] = None
     candidates = [
         # Preferred keyword style
@@ -108,12 +107,11 @@ def _call_query_vectordb(collection: Any, query: str, n_results: int, filter_dic
             raise e
     raise last_exc or RuntimeError("Unable to call query_vectordb with known signatures")
 
-
+# It only initializes ChromaDB and returns the collection (database/table) that will be searched.
 def _get_collection(collection_name: Optional[str] = None) -> Any:
     """Initialize chromadb and return the most appropriate collection object."""
     if initialize_chromadb is None:
         return None
-
     init_result = initialize_chromadb()
     collection = _normalize_collection_result(init_result)
 
@@ -129,7 +127,7 @@ def _get_collection(collection_name: Optional[str] = None) -> Any:
 # -------------------------
 # Retrieval and formatting
 # -------------------------
-
+# retrival of the query answer
 def retrieve_relevant_context(
     query: str,
     n_results: int = DEFAULT_N_RESULTS,
@@ -183,7 +181,7 @@ def _extract_nested(block: Any) -> List[Any]:
         return list(block)
     return [block]
 
-
+# It Then formats the retrieved results into a consistent structure and includes the existing metadata with each document.
 def format_retrieval_results(results: Optional[Dict[str, Any]]) -> Union[str, List[Dict[str, Any]]]:
     """Normalize and format raw retrieval results into a list of items or a string message."""
     if not results:
@@ -248,7 +246,7 @@ def format_retrieval_results(results: Optional[Dict[str, Any]]) -> Union[str, Li
         logger.exception("Failed to format retrieval results: %s", e)
         return "No relevant information found."
 
-
+# ItThen combines all the formatted retrieval items into a single text string (context), which is then sent to the LLM as part of the prompt.
 def create_context_string(formatted_context: Union[str, List[Dict[str, Any]]], max_items: int = DEFAULT_CONTEXT_MAX_ITEMS) -> str:
     """Create a single prompt-ready context string for the LLM."""
     if isinstance(formatted_context, str):
@@ -326,7 +324,7 @@ def create_context_string(formatted_context: Union[str, List[Dict[str, Any]]], m
 # -------------------------
 # Convenience wrappers used by agent.py / report generators
 # -------------------------
-
+#Simply Then chains these three steps before this together so other functions don't have to call each one separately.
 def _wrap_retrieval(
     query: str,
     n_results: int = DEFAULT_N_RESULTS,
@@ -421,7 +419,7 @@ def retrieve_all_data(query: str, n_results: int = DEFAULT_N_RESULTS, analysis_f
 retrieve_context = retrieve_relevant_context
 retrieve_relevant_data = retrieve_relevant_context
 
-
+# Then The checks whether the Python file is being run directly or imported as a module.
 if __name__ == "__main__":
     print("RAG retrieval smoke test")
     q = "Top performing products in North America"
