@@ -1,8 +1,12 @@
-from typing import Optional
+
+from __future__ import annotations
+
+from typing import Optional, Any
 import os
 import time
 import traceback
 import json
+import asyncio
 
 # Load env if available
 try:
@@ -14,10 +18,10 @@ except Exception:
 # HTTP client
 try:
     import requests
-    from requests.exceptions import RequestException, HTTPError, Timeout as RequestsTimeout
+    from requests.exceptions import RequestException, Timeout as RequestsTimeout
 except Exception:
     requests = None
-    RequestException = HTTPError = RequestsTimeout = Exception
+    RequestException = RequestsTimeout = Exception
 
 # RAG retrieval (your module)
 try:
@@ -35,6 +39,7 @@ except Exception:
 
 # Config
 GROQ_API_KEY = os.getenv("GROQ_API_KEY") or None
+# You can keep using the full chat/completions URL, but we also derive base_url for AutoGen.
 GROQ_API_URL = os.getenv("GROQ_API_URL", "https://api.groq.com/openai/v1/chat/completions")
 MODEL_NAME = os.getenv("GROQ_MODEL", os.getenv("MODEL_NAME", None))  # set in .env
 
@@ -55,10 +60,13 @@ else:
         "groq/compound-mini",
     ]
 
-# AutoGen detection
+# AutoGen detection (new AgentChat API)
 AUTOGEN_AVAILABLE = False
+AssistantAgent = None
+OpenAIChatCompletionClient = None
 try:
-    from autogen_agentchat.agents import AssistantAgent, UserProxyAgent  # type: ignore
+    from autogen_agentchat.agents import AssistantAgent  # type: ignore
+    from autogen_ext.models.openai import OpenAIChatCompletionClient  # type: ignore
     AUTOGEN_AVAILABLE = True
     print("[agent] AutoGen import succeeded")
 except Exception:
@@ -125,14 +133,104 @@ Create a detailed report with these sections:
 Make it professional, clear, and actionable."""
 
 
+def _build_critic_prompt(query: str, analyst_findings: str, draft_report: str, analysis_focus: Optional[str] = None) -> str:
+    analysis_focus = (analysis_focus or "").strip()
+    focus_block = f"\n\nUser focus / special instruction:\n{analysis_focus}\n" if analysis_focus else ""
+    return f"""You are a strict but helpful senior critic for business reports.
+
+Task:
+Review the report for factual consistency with the analyst findings, missing insights, unsupported claims, clarity, professionalism, and actionable recommendations.
+
+Original Query: {query}{focus_block}
+
+Analyst Findings:
+{analyst_findings}
+
+Draft Report:
+{draft_report}
+
+Return your review in this exact format:
+
+STATUS: APPROVED
+
+or
+
+STATUS: NEEDS_REVISION
+ISSUES:
+- ...
+- ...
+SUGGESTED_FIXES:
+- ...
+- ...
+
+Be concise but specific."""
+
+
+def _build_revision_prompt(query: str, analyst_findings: str, draft_report: str, critic_feedback: str, analysis_focus: Optional[str] = None) -> str:
+    analysis_focus = (analysis_focus or "").strip()
+    focus_block = f"\n\nUser focus / special instruction:\n{analysis_focus}\n" if analysis_focus else ""
+    return f"""Revise the report using the critic feedback below.
+
+Original Query: {query}{focus_block}
+
+Analyst Findings:
+{analyst_findings}
+
+Draft Report:
+{draft_report}
+
+Critic Feedback:
+{critic_feedback}
+
+Rewrite the report to fix the issues while keeping it professional, clear, and actionable.
+Return only the revised report."""
+
+
+def _parse_status(text: str) -> str:
+    upper = (text or "").upper()
+    if "STATUS: APPROVED" in upper or upper.strip() == "APPROVED":
+        return "APPROVED"
+    if "STATUS: NEEDS_REVISION" in upper or "NEEDS_REVISION" in upper:
+        return "NEEDS_REVISION"
+    return "UNKNOWN"
+
+
+def _extract_result_text(result: Any) -> str:
+    """Best-effort extraction from AutoGen TaskResult / message list."""
+    try:
+        messages = getattr(result, "messages", None)
+        if messages:
+            last = messages[-1]
+            content = getattr(last, "content", None)
+            if content is not None:
+                return str(content).strip()
+            if isinstance(last, dict):
+                return str(last.get("content", "")).strip()
+    except Exception:
+        pass
+
+    for attr in ("content", "text", "output"):
+        try:
+            value = getattr(result, attr, None)
+            if value:
+                return str(value).strip()
+        except Exception:
+            pass
+
+    if isinstance(result, str):
+        return result.strip()
+
+    try:
+        return json.dumps(result, indent=2, default=str)
+    except Exception:
+        return str(result)
+
+
 def _groq_models_list():
     """Attempt to GET /openai/v1/models from Groq (helpful when model selection fails)."""
     if requests is None:
         return None, "requests not installed", None
     parsed_url = GROQ_API_URL
-    # Build models URL from base path
-    # Example: if GROQ_API_URL == https://api.groq.com/openai/v1/chat/completions
-    # models endpoint is https://api.groq.com/openai/v1/models
     base = None
     try:
         from urllib.parse import urlparse, urljoin
@@ -149,6 +247,197 @@ def _groq_models_list():
         return r.status_code, body, models_url
     except Exception as e:
         return None, str(e), base
+
+
+def _groq_base_url() -> str:
+    """
+    Derive the OpenAI-compatible base_url for AutoGen from GROQ_API_URL.
+    Example:
+      https://api.groq.com/openai/v1/chat/completions -> https://api.groq.com/openai/v1
+    """
+    api_url = (os.getenv("GROQ_API_URL", GROQ_API_URL) or "").strip()
+    if not api_url:
+        return "https://api.groq.com/openai/v1"
+    from urllib.parse import urlparse
+    p = urlparse(api_url)
+    if p.scheme and p.netloc:
+        base = f"{p.scheme}://{p.netloc}"
+        if "/openai/v1" in p.path:
+            return base + "/openai/v1"
+        return api_url.rsplit("/chat/completions", 1)[0].rstrip("/")
+    return "https://api.groq.com/openai/v1"
+
+
+def _make_autogen_client(model: str):
+    """
+    Create an AutoGen OpenAI-compatible model client for Groq.
+    This uses the current AgentChat API: AssistantAgent(..., model_client=client) and agent.run(task=...).
+    """
+    if not AUTOGEN_AVAILABLE:
+        raise RuntimeError("AutoGen not available")
+
+    base_url = _groq_base_url()
+    api_key = GROQ_API_KEY or os.environ.get("GROQ_API_KEY", "")
+
+    # OpenAI-compatible endpoints typically work with model_info/model_capabilities.
+    # We try the most compatible shapes first.
+    client_kwargs_variants = [
+        {
+            "model": model,
+            "api_key": api_key or "placeholder",
+            "base_url": base_url,
+            "model_info": {
+                "vision": False,
+                "function_calling": False,
+                "json_output": False,
+            },
+        },
+        {
+            "model": model,
+            "api_key": api_key or "placeholder",
+            "base_url": base_url,
+            "model_capabilities": {
+                "vision": False,
+                "function_calling": False,
+                "json_output": False,
+            },
+        },
+        {
+            "model": model,
+            "api_key": api_key or "placeholder",
+            "base_url": base_url,
+        },
+    ]
+
+    last_exc = None
+    for kwargs in client_kwargs_variants:
+        try:
+            return OpenAIChatCompletionClient(**kwargs)
+        except Exception as e:
+            last_exc = e
+            continue
+
+    raise last_exc or RuntimeError("Failed to create AutoGen model client")
+
+
+async def _run_autogen_agent(agent, task: str) -> str:
+    result = await agent.run(task=task)
+    return _extract_result_text(result)
+
+
+async def _autogen_multiagent_pipeline(
+    query: str,
+    report_type: str = "combined",
+    n_results: int = 8,
+    analysis_focus: str = "",
+) -> str:
+    """
+    AutoGen-based pipeline using AssistantAgent.run() (current AgentChat API).
+    Sequence:
+      Retriever -> Analyst -> Writer -> Critic -> optional Revision -> Final
+    """
+    retrieval_query = _build_query_with_focus(query, analysis_focus)
+
+    if report_type == "sales":
+        context = retrieve_sales_data(retrieval_query, n_results=n_results)
+    elif report_type == "marketing":
+        context = retrieve_marketing_data(retrieval_query, n_results=n_results)
+    else:
+        context = retrieve_combined_data(retrieval_query, n_results=n_results)
+
+    context = _truncate_context(context, max_chars=14000)
+
+    model_candidates = [MODEL_NAME] if MODEL_NAME else []
+    model_candidates += [m for m in GROQ_FALLBACK_MODELS if m not in model_candidates]
+    if not model_candidates:
+        model_candidates = ["llama-3.3-70b-versatile"]
+
+    last_exc = None
+    for candidate in model_candidates:
+        model_client = None
+        try:
+            model_client = _make_autogen_client(candidate)
+
+            analyst = AssistantAgent(
+                name="data_analyst",
+                model_client=model_client,
+                system_message=(
+                    "You are a Senior Data Analyst specializing in sales and marketing analytics. "
+                    "Be precise, data-driven, and align your analysis to the user's focus."
+                ),
+            )
+            writer = AssistantAgent(
+                name="report_writer",
+                model_client=model_client,
+                system_message=(
+                    "You are a Professional Report Writer specialized in business reporting. "
+                    "Write clear, actionable executive-level reports."
+                ),
+            )
+            critic = AssistantAgent(
+                name="report_critic",
+                model_client=model_client,
+                system_message=(
+                    "You are a strict but helpful senior critic for business reports. "
+                    "Judge factual consistency, missing insights, unsupported claims, clarity, professionalism, and actionability."
+                ),
+            )
+
+            analysis_prompt = _build_analysis_prompt(query, context, analysis_focus=analysis_focus)
+            analyst_findings = await _run_autogen_agent(analyst, analysis_prompt)
+            if not analyst_findings:
+                raise RuntimeError("AutoGen analyst returned empty output")
+
+            report_prompt = _build_report_prompt(query, analyst_findings, analysis_focus=analysis_focus)
+            draft_report = await _run_autogen_agent(writer, report_prompt)
+            if not draft_report:
+                raise RuntimeError("AutoGen writer returned empty output")
+
+            critic_prompt = _build_critic_prompt(query, analyst_findings, draft_report, analysis_focus=analysis_focus)
+            critic_feedback = await _run_autogen_agent(critic, critic_prompt)
+            if not critic_feedback:
+                critic_feedback = "STATUS: UNKNOWN"
+
+            status = _parse_status(critic_feedback)
+            final_report = draft_report.strip()
+
+            if status != "APPROVED":
+                revision_prompt = _build_revision_prompt(
+                    query=query,
+                    analyst_findings=analyst_findings,
+                    draft_report=draft_report,
+                    critic_feedback=critic_feedback,
+                    analysis_focus=analysis_focus,
+                )
+                revised_report = await _run_autogen_agent(writer, revision_prompt)
+                if revised_report:
+                    final_report = revised_report.strip()
+
+                    # one more critic pass after revision
+                    critic_feedback = await _run_autogen_agent(
+                        critic,
+                        _build_critic_prompt(query, analyst_findings, final_report, analysis_focus=analysis_focus),
+                    ) or critic_feedback
+
+            bundle = (
+                f"{final_report}\n\n"
+                f"---\nCritic Review\n{critic_feedback.strip()}"
+            )
+            print("[ReportGen] AutoGen flow complete with critic review.")
+            return bundle.strip()
+
+        except Exception as e:
+            last_exc = e
+            print(f"[ReportGen] AutoGen candidate '{candidate}' failed: {e}")
+            traceback.print_exc()
+        finally:
+            try:
+                if model_client is not None and hasattr(model_client, "close"):
+                    await model_client.close()
+            except Exception:
+                pass
+
+    raise RuntimeError(f"AutoGen pipeline failed for all candidates. Last error: {last_exc}")
 
 
 # -------------------------
@@ -257,99 +546,7 @@ def _groq_chat(prompt: str, system_message: Optional[str] = None, model: Optiona
 
 
 # -------------------------
-# AutoGen helpers (best-effort)
-# -------------------------
-def create_autogen_config():
-    return {
-        "config_list": [
-            {
-                "model": MODEL_NAME or "llama-3.3-70b-versatile",
-                "api_key": GROQ_API_KEY or os.environ.get("GROQ_API_KEY", ""),
-            }
-        ],
-        "temperature": TEMPERATURE,
-        "timeout": 120,
-        "cache_seed": None,
-    }
-
-
-def _try_create_assistant(role_name: str, system_message: str):
-    """Try a few constructor signatures for AssistantAgent; raise on last failure."""
-    if not AUTOGEN_AVAILABLE:
-        raise RuntimeError("AutoGen not available")
-    last_exc = None
-    tries = [
-        ({"name": role_name, "system_message": system_message, "llm_config": create_autogen_config()}, False),
-        ({"name": role_name, "system_message": system_message}, False),
-        ((role_name, system_message, create_autogen_config()), True),
-        ((role_name, system_message), True),
-        ({"name": role_name, "prompt": system_message, "llm_config": create_autogen_config()}, False),
-    ]
-    for arg, positional in tries:
-        try:
-            if positional:
-                if isinstance(arg, tuple):
-                    return AssistantAgent(*arg)
-            else:
-                if isinstance(arg, dict):
-                    return AssistantAgent(**arg)
-        except Exception as e:
-            last_exc = e
-            continue
-    # final fallback
-    try:
-        return AssistantAgent(role_name)
-    except Exception as e:
-        raise last_exc or e
-
-
-def _try_create_user_proxy():
-    if not AUTOGEN_AVAILABLE:
-        raise RuntimeError("AutoGen not available")
-    last_exc = None
-    tries = [
-        ({"name": "user_proxy", "human_input_mode": "NEVER", "max_consecutive_auto_reply": 0, "code_execution_config": False, "default_auto_reply": ""}, False),
-        (("user_proxy",), True),
-        ({"name": "user_proxy"}, False),
-    ]
-    for arg, positional in tries:
-        try:
-            if positional and isinstance(arg, tuple):
-                return UserProxyAgent(*arg)
-            elif isinstance(arg, dict):
-                return UserProxyAgent(**arg)
-        except Exception as e:
-            last_exc = e
-            continue
-    # final fallback: try with name only
-    try:
-        return UserProxyAgent("user_proxy")
-    except Exception as e:
-        raise last_exc or e
-
-
-def create_data_analyst_agent_autogen():
-    system_message = (
-        "You are a Senior Data Analyst specializing in sales and marketing analytics.\n"
-        "You receive RAG-provided context and must be precise, data-driven, and aligned with the user's analysis focus."
-    )
-    return _try_create_assistant("data_analyst", system_message)
-
-
-def create_report_writer_agent_autogen():
-    system_message = (
-        "You are a Professional Report Writer specialized in business reporting.\n"
-        "Produce clear, actionable executive reports with sections and recommendations."
-    )
-    return _try_create_assistant("report_writer", system_message)
-
-
-def create_user_proxy_autogen():
-    return _try_create_user_proxy()
-
-
-# -------------------------
-# Main multi-agent flow (AutoGen or GROQ fallback)
+# Main multi-agent flow
 # -------------------------
 def generate_report_with_autogen_multiagent(
     query: str,
@@ -357,7 +554,36 @@ def generate_report_with_autogen_multiagent(
     n_results: int = 8,
     analysis_focus: str = "",
 ) -> str:
+    """
+    Best-effort multi-agent report generation.
+
+    Preferred path:
+      AutoGen AgentChat AssistantAgent.run()  -> Analyst -> Writer -> Critic -> optional revision
+
+    Fallback:
+      Groq chat completions path with the same analyst/writer/critic stages
+    """
     print("\n[ReportGen] Starting Multi-Agent Analysis...")
+
+    # 1) Try current AutoGen AgentChat API first
+    if AUTOGEN_AVAILABLE:
+        try:
+            return asyncio.run(
+                _autogen_multiagent_pipeline(
+                    query=query,
+                    report_type=report_type,
+                    n_results=n_results,
+                    analysis_focus=analysis_focus,
+                )
+            )
+        except Exception as e:
+            print(f"[ReportGen] AutoGen pipeline failed (falling back to GROQ): {e}")
+            traceback.print_exc()
+
+    # 2) GROQ fallback
+    print("[ReportGen] Using GROQ fallback for analysis + report generation...")
+    if not (GROQ_API_KEY or os.environ.get("GROQ_API_KEY")):
+        raise RuntimeError("Neither AutoGen nor GROQ configured. Set GROQ_API_KEY and GROQ_API_URL in .env")
 
     retrieval_query = _build_query_with_focus(query, analysis_focus)
 
@@ -369,37 +595,6 @@ def generate_report_with_autogen_multiagent(
         context = retrieve_combined_data(retrieval_query, n_results=n_results)
 
     context = _truncate_context(context, max_chars=14000)
-
-    # Try AutoGen only if user_proxy.initiate_chat exists
-    if AUTOGEN_AVAILABLE:
-        try:
-            user_proxy = create_user_proxy_autogen()
-            if user_proxy and hasattr(user_proxy, "initiate_chat"):
-                print("[ReportGen] AutoGen + user_proxy detected — using AutoGen flow")
-                analyst = create_data_analyst_agent_autogen()
-                writer = create_report_writer_agent_autogen()
-
-                analysis_prompt = _build_analysis_prompt(query, context, analysis_focus=analysis_focus)
-
-                user_proxy.initiate_chat(analyst, message=analysis_prompt, max_turns=1)
-                analyst_findings = user_proxy.last_message(analyst)["content"]
-
-                report_prompt = _build_report_prompt(query, analyst_findings, analysis_focus=analysis_focus)
-
-                user_proxy.initiate_chat(writer, message=report_prompt, max_turns=1)
-                final_report = user_proxy.last_message(writer)["content"]
-                print("[ReportGen] AutoGen flow complete.")
-                return final_report
-            else:
-                print("[ReportGen] AutoGen available but user_proxy.initiate_chat not usable — skipping AutoGen and using GROQ fallback")
-        except Exception as e:
-            print(f"[ReportGen] AutoGen flow failed (falling back): {e}")
-            traceback.print_exc()
-
-    # GROQ fallback
-    print("[ReportGen] Using GROQ fallback for analysis + report generation...")
-    if not (GROQ_API_KEY or os.environ.get("GROQ_API_KEY")):
-        raise RuntimeError("Neither AutoGen nor GROQ configured. Set GROQ_API_KEY and GROQ_API_URL in .env")
 
     analyst_system = "You are a Senior Data Analyst specializing in sales and marketing analytics. Be precise and analytical."
     analysis_prompt = _build_analysis_prompt(query, context, analysis_focus=analysis_focus)
@@ -415,8 +610,33 @@ def generate_report_with_autogen_multiagent(
     if not final_report:
         raise RuntimeError("GROQ returned empty final report")
 
-    print("[ReportGen] GROQ flow complete.")
-    return final_report
+    critic_system = "You are a strict but helpful senior critic for business reports."
+    critic_prompt = _build_critic_prompt(query, analyst_findings, final_report, analysis_focus=analysis_focus)
+    critic_feedback = _groq_chat(critic_prompt, system_message=critic_system, model=MODEL_NAME)
+    if not critic_feedback:
+        critic_feedback = "STATUS: UNKNOWN"
+
+    if _parse_status(critic_feedback) != "APPROVED":
+        revision_prompt = _build_revision_prompt(
+            query=query,
+            analyst_findings=analyst_findings,
+            draft_report=final_report,
+            critic_feedback=critic_feedback,
+            analysis_focus=analysis_focus,
+        )
+        revised_report = _groq_chat(revision_prompt, system_message=writer_system, model=MODEL_NAME)
+        if revised_report:
+            final_report = revised_report.strip()
+
+            # one more critic check after revision
+            critic_feedback = _groq_chat(
+                _build_critic_prompt(query, analyst_findings, final_report, analysis_focus=analysis_focus),
+                system_message=critic_system,
+                model=MODEL_NAME,
+            ) or critic_feedback
+
+    print("[ReportGen] GROQ flow complete with critic review.")
+    return f"{final_report}\n\n---\nCritic Review\n{critic_feedback.strip()}"
 
 
 # Backwards-compatible wrapper expected by older code
@@ -445,16 +665,29 @@ def generate_custom_report(prompt_with_context: str, analysis_focus: str = "") -
 User focus / special instruction:
 {analysis_focus}"""
 
+    # Prefer AutoGen if available; otherwise fall back to Groq.
     if AUTOGEN_AVAILABLE:
         try:
-            user_proxy = create_user_proxy_autogen()
-            if user_proxy and hasattr(user_proxy, "initiate_chat"):
-                analyst = create_data_analyst_agent_autogen()
-                user_proxy.initiate_chat(analyst, message=prompt_with_context, max_turns=1)
-                return user_proxy.last_message(analyst)["content"]
+            async def _run() -> str:
+                client = _make_autogen_client(MODEL_NAME or GROQ_FALLBACK_MODELS[0])
+                try:
+                    analyst = AssistantAgent(
+                        name="data_analyst",
+                        model_client=client,
+                        system_message="You are a data analyst. Be precise and base your analysis on the context.",
+                    )
+                    return await _run_autogen_agent(analyst, prompt_with_context)
+                finally:
+                    try:
+                        if hasattr(client, "close"):
+                            await client.close()
+                    except Exception:
+                        pass
+
+            return asyncio.run(_run())
         except Exception:
             pass
-    # fallback to GROQ
+
     return _groq_chat(
         prompt_with_context,
         system_message="You are a data analyst. Be precise and base your analysis on the context.",
