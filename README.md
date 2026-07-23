@@ -1,4 +1,4 @@
-AI Sales & Marketing Report Generator
+# AI Sales & Marketing Report Generator
 
 <p align="center">
   <img src="https://img.shields.io/badge/Python-3.8%2B-blue.svg" alt="Python 3.8+">
@@ -16,7 +16,9 @@ AI Sales & Marketing Report Generator
   Generate executive-level sales and marketing intelligence reports automatically using Retrieval-Augmented Generation (RAG), multi-agent orchestration, ChromaDB, publication-quality charts, and automated Email + Telegram delivery.
 </p>
 
-Overview
+---
+
+## Overview
 
 This project is a complete AI-powered business intelligence reporting system designed to automate the full reporting lifecycle.
 
@@ -24,96 +26,68 @@ Instead of manually analyzing datasets, creating charts, writing summaries, expo
 
 It combines:
 
-Retrieval-Augmented Generation (RAG) for evidence-based analysis
-
-multi-agent orchestration for modular reasoning
-
-ChromaDB for persistent vector search and metadata filtering
-
-matplotlib for automated chart generation
-
-HTML email delivery with inline charts and attachments
-
-Telegram delivery for lightweight distribution
-
-Streamlit UI for manual generation and review
-
-scheduler automation for recurring execution
+- Retrieval-Augmented Generation (RAG) for evidence-based analysis
+- multi-agent orchestration for modular reasoning
+- ChromaDB for persistent vector search and metadata filtering
+- matplotlib for automated chart generation
+- HTML email delivery with inline charts and attachments
+- Telegram delivery for lightweight distribution
+- Streamlit UI for manual generation and review
+- scheduler automation for recurring execution
 
 The result is a practical reporting engine that turns business data into polished executive output with a strong emphasis on reliability, traceability, and modular design.
 
-Why This Project Stands Out
+---
 
-Business-first AI rather than a generic chatbot
+## Why This Project Stands Out
 
-Modular architecture with clean separation of retrieval, reasoning, visualization, and delivery
+- **Business-first AI** rather than a generic chatbot
+- **Modular architecture** with clean separation of retrieval, reasoning, visualization, and delivery
+- **Fallback-friendly design** using AutoGen when available and GROQ-compatible generation when needed
+- **Operational features** such as logging, retries, cleanup, scheduling, and run history
+- **Multi-channel output** so the same report can be viewed in the app, emailed, or sent to Telegram
 
-Fallback-friendly design using AutoGen when available and GROQ-compatible generation when needed
+---
 
-Operational features such as logging, retries, cleanup, scheduling, and run history
+## Core Capabilities
 
-Multi-channel output so the same report can be viewed in the app, emailed, or sent to Telegram
+### Analysis and Reasoning
+- Sales performance analysis
+- Marketing campaign analysis
+- Quarterly summary reporting
+- Product analysis
+- Regional analysis
+- Custom query analysis
 
-Core Capabilities
+### Retrieval and Data Handling
+- Persistent vector store with ChromaDB
+- Metadata-aware retrieval
+- Domain-specific collections and filters
+- Safe prompt truncation for large context windows
+- Retrieval formatting designed for downstream LLM use
 
-Analysis and Reasoning
+### Visualization
+- Sales by region
+- Quarterly performance
+- Product performance
+- Marketing ROI
+- Channel performance
+- Top products
+- Regional comparison
+- Quarterly growth
 
-Sales performance analysis
+### Delivery and Automation
+- HTML email with embedded charts
+- Telegram file delivery
+- Daily scheduled execution
+- Immediate test execution via CLI
+- Streamlit-driven manual generation
 
-Marketing campaign analysis
+---
 
-Quarterly summary reporting
+## System Architecture
 
-Product analysis
-
-Regional analysis
-
-Custom query analysis
-
-Retrieval and Data Handling
-
-Persistent vector store with ChromaDB
-
-Metadata-aware retrieval
-
-Domain-specific collections and filters
-
-Safe prompt truncation for large context windows
-
-Retrieval formatting designed for downstream LLM use
-
-Visualization
-
-Sales by region
-
-Quarterly performance
-
-Product performance
-
-Marketing ROI
-
-Channel performance
-
-Top products
-
-Regional comparison
-
-Quarterly growth
-
-Delivery and Automation
-
-HTML email with embedded charts
-
-Telegram file delivery
-
-Daily scheduled execution
-
-Immediate test execution via CLI
-
-Streamlit-driven manual generation
-
-System Architecture
-
+```mermaid
 flowchart TB
 
     subgraph DATA["Business Data Sources"]
@@ -226,9 +200,13 @@ flowchart TB
     G2 --> J2
     G3 --> J2
     J2 --> J3 --> J4
+```
 
-End-to-End Execution Flow
+---
 
+## End-to-End Execution Flow
+
+```mermaid
 sequenceDiagram
     participant User
     participant Streamlit
@@ -258,9 +236,13 @@ sequenceDiagram
     Writer->>Telegram: Send files
     Email-->>User: Executive email
     Telegram-->>User: Report delivery
+```
 
-Project Structure
+---
 
+## Project Structure
+
+```text
 .
 ├── agent.py
 ├── app.py
@@ -278,50 +260,57 @@ Project Structure
 ├── logs/
 ├── screenshots/
 └── README.md
+```
 
-Technology Stack
+---
 
-Language: Python 3.8+
+## Technology Stack
 
-UI: Streamlit
+- **Language:** Python 3.8+
+- **UI:** Streamlit
+- **Vector DB:** ChromaDB
+- **LLM Orchestration:** AutoGen + GROQ-compatible fallback
+- **Charts:** matplotlib, NumPy
+- **Delivery:** SMTP (Gmail), Telegram via Telethon
+- **Scheduling:** schedule, asyncio
+- **Persistence:** local files, logs, run history JSON
 
-Vector DB: ChromaDB
+---
 
-LLM Orchestration: AutoGen + GROQ-compatible fallback
+## Setup
 
-Charts: matplotlib, NumPy
+### 1) Clone the repository
 
-Delivery: SMTP (Gmail), Telegram via Telethon
-
-Scheduling: schedule, asyncio
-
-Persistence: local files, logs, run history JSON
-
-Setup
-
-1) Clone the repository
-
+```bash
 git clone <repo-url>
 cd <repo-name>
+```
 
-2) Create and activate a virtual environment
+### 2) Create and activate a virtual environment
 
+```bash
 python -m venv .venv
+```
 
+```bash
 # macOS / Linux
 source .venv/bin/activate
 
 # Windows PowerShell
 .venv\Scripts\Activate.ps1
+```
 
-3) Install dependencies
+### 3) Install dependencies
 
+```bash
 pip install -r requirements.txt
+```
 
-4) Configure environment variables
+### 4) Configure environment variables
 
-Create a .env file in the project root:
+Create a `.env` file in the project root:
 
+```env
 # LLM / RAG
 GROQ_API_KEY=
 GROQ_API_URL=https://api.groq.com/openai/v1/chat/completions
@@ -362,206 +351,196 @@ TELEGRAM_MAX_RETRIES=3
 # Scheduler
 SCHEDULE_TIME=09:00
 TIMEZONE=Asia/Kolkata
+```
 
-Running the Project
+---
 
-Streamlit App
+## Running the Project
 
+### Streamlit App
+
+```bash
 streamlit run app.py
+```
 
-Generate Charts Only
+### Generate Charts Only
 
+```bash
 python -c "from visualizations import generate_all_charts; print(generate_all_charts())"
+```
 
-Run the Full Pipeline Immediately
+### Run the Full Pipeline Immediately
 
+```bash
 python scheduler.py now
+```
 
-Start the Scheduler
+### Start the Scheduler
 
+```bash
 python scheduler.py
+```
 
-Test Telegram Delivery
+### Test Telegram Delivery
 
+```bash
 python telegram_sender.py --test
+```
 
-Streamlit UI Features
+---
+
+## Streamlit UI Features
 
 The Streamlit app allows you to:
 
-choose a report type
+- choose a report type
+- provide optional filters such as region, quarter, channel, or product
+- generate charts automatically
+- preview output inside the UI
+- download the generated report
+- send the report by email
+- send the report by Telegram
 
-provide optional filters such as region, quarter, channel, or product
+---
 
-generate charts automatically
+## Report Types
 
-preview output inside the UI
-
-download the generated report
-
-send the report by email
-
-send the report by Telegram
-
-Report Types
-
-Sales Performance
-
+### Sales Performance
 Analyzes sales trends by region and quarter.
 
-Marketing Campaign
-
+### Marketing Campaign
 Analyzes campaign performance by channel and quarter.
 
-Quarterly Summary
-
+### Quarterly Summary
 Produces a combined executive summary for the selected quarter.
 
-Product Analysis
-
+### Product Analysis
 Reviews product-level performance and related insights.
 
-Regional Analysis
-
+### Regional Analysis
 Focuses on performance across a specific region.
 
-Custom Query
-
+### Custom Query
 Accepts a free-form business question and generates a tailored analysis.
 
-Data and Retrieval Layer
+---
 
-rag_retrieval.py and vector_db.py provide the retrieval backbone of the system.
+## Data and Retrieval Layer
 
-Key behaviors
+`rag_retrieval.py` and `vector_db.py` provide the retrieval backbone of the system.
 
-retrieval queries can be enriched with an analysis focus
+### Key behaviors
+- retrieval queries can be enriched with an analysis focus
+- ChromaDB collections are created or loaded automatically
+- sales and marketing records are indexed with metadata
+- results are normalized into prompt-ready context strings
+- outputs are truncated safely to keep prompts manageable
 
-ChromaDB collections are created or loaded automatically
-
-sales and marketing records are indexed with metadata
-
-results are normalized into prompt-ready context strings
-
-outputs are truncated safely to keep prompts manageable
-
-Why this matters
-
+### Why this matters
 This design makes the system more explainable and more useful than a plain text generator. The report is not invented from scratch; it is grounded in stored business data.
 
-Visualization Layer
+---
 
-visualizations.py generates charts from the underlying data/ files.
+## Visualization Layer
 
-Supported inputs
+`visualizations.py` generates charts from the underlying `data/` files.
 
-data/sales_data.json
+### Supported inputs
+- `data/sales_data.json`
+- `data/marketing_data.json`
 
-data/marketing_data.json
+### Generated charts
+- `sales_by_region.png`
+- `quarterly_performance.png`
+- `product_performance.png`
+- `marketing_roi.png`
+- `channel_performance.png`
+- `top_products.png`
+- `regional_comparison.png`
+- `quarterly_growth.png`
 
-Generated charts
+The charts are saved into the `charts/` directory and can be embedded into reports, emails, or Telegram deliveries.
 
-sales_by_region.png
+---
 
-quarterly_performance.png
+## Delivery Layer
 
-product_performance.png
-
-marketing_roi.png
-
-channel_performance.png
-
-top_products.png
-
-regional_comparison.png
-
-quarterly_growth.png
-
-The charts are saved into the charts/ directory and can be embedded into reports, emails, or Telegram deliveries.
-
-Delivery Layer
-
-HTML Email
-
+### HTML Email
 The email sender can:
 
-attach report files
+- attach report files
+- embed chart images inline
+- generate a readable plain-text fallback
+- retry sending on failure
 
-embed chart images inline
-
-generate a readable plain-text fallback
-
-retry sending on failure
-
-Telegram
-
+### Telegram
 The Telegram sender can:
 
-authenticate using Telethon
+- authenticate using Telethon
+- send a formatted header message
+- send charts as files
+- send reports as files
+- send a footer confirmation message
+- support test mode from the CLI
 
-send a formatted header message
+---
 
-send charts as files
-
-send reports as files
-
-send a footer confirmation message
-
-support test mode from the CLI
-
-Scheduler
+## Scheduler
 
 The scheduler provides automation for daily execution.
 
-It does the following
+### It does the following
+- generates sales, marketing, and quarterly reports
+- generates all charts
+- sends the results by email
+- sends the results by Telegram
+- saves run metadata to `logs/run_history.json`
+- cleans up older report/chart files
 
-generates sales, marketing, and quarterly reports
+### Run modes
+- `python scheduler.py` → starts the scheduled loop
+- `python scheduler.py now` → runs once immediately
 
-generates all charts
+---
 
-sends the results by email
+## Example Usage
 
-sends the results by Telegram
+### Generate a sales report from code
 
-saves run metadata to logs/run_history.json
-
-cleans up older report/chart files
-
-Run modes
-
-python scheduler.py → starts the scheduled loop
-
-python scheduler.py now → runs once immediately
-
-Example Usage
-
-Generate a sales report from code
-
+```python
 from report_generator import generate_sales_performance_report
 
 report = generate_sales_performance_report(region="North America", quarter="Q2 2024")
 print(report)
+```
 
-Generate a custom analysis
+### Generate a custom analysis
 
+```python
 from report_generator import generate_custom_analysis_report
 
 report = generate_custom_analysis_report(
     "Why did sales drop in the North region last quarter?"
 )
 print(report)
+```
 
-Save a report manually
+### Save a report manually
 
+```python
 from report_generator import save_report_to_file
 
 path = save_report_to_file("Sample report text", filename="reports/sample_report.txt")
 print(path)
+```
 
-Screenshots
+---
+
+## Screenshots
 
 Add your screenshots here to show the app and outputs in action.
 
+```html
 <p align="center">
   <img src="screenshots/Report%20(1).png" alt="Report Preview 1" width="700" />
 </p>
@@ -569,97 +548,87 @@ Add your screenshots here to show the app and outputs in action.
 <p align="center">
   <img src="screenshots/Report%20(2).png" alt="Report Preview 2" width="700" />
 </p>
+```
 
 You can also include:
 
-Streamlit dashboard preview
+- Streamlit dashboard preview
+- sample chart images
+- email preview
+- Telegram preview
 
-sample chart images
+---
 
-email preview
+## Operational Notes
 
-Telegram preview
+- AutoGen is preferred when available.
+- GROQ is used as a fallback if AutoGen is unavailable.
+- Prompt and context truncation are used to avoid oversized inputs.
+- Logging is enabled across the pipeline for debugging and auditability.
+- File cleanup helps prevent long-term storage bloat.
 
-Operational Notes
+---
 
-AutoGen is preferred when available.
+## Troubleshooting
 
-GROQ is used as a fallback if AutoGen is unavailable.
+### No charts generated
+Check that the `data/` directory contains valid JSON files with the expected schema.
 
-Prompt and context truncation are used to avoid oversized inputs.
+### Email delivery failed
+Verify Gmail credentials, app password, and recipient email in `.env`.
 
-Logging is enabled across the pipeline for debugging and auditability.
+### Telegram delivery failed
+Verify `TELEGRAM_API_ID`, `TELEGRAM_API_HASH`, and `TELEGRAM_PHONE`.
 
-File cleanup helps prevent long-term storage bloat.
-
-Troubleshooting
-
-No charts generated
-
-Check that the data/ directory contains valid JSON files with the expected schema.
-
-Email delivery failed
-
-Verify Gmail credentials, app password, and recipient email in .env.
-
-Telegram delivery failed
-
-Verify TELEGRAM_API_ID, TELEGRAM_API_HASH, and TELEGRAM_PHONE.
-
-Retrieval returns empty context
-
+### Retrieval returns empty context
 Confirm that ChromaDB has been initialized and that records were indexed successfully.
 
-GROQ fallback fails
+### GROQ fallback fails
+Ensure `GROQ_API_KEY` and `GROQ_API_URL` are set correctly.
 
-Ensure GROQ_API_KEY and GROQ_API_URL are set correctly.
+---
 
-Security Best Practices
+## Security Best Practices
 
-Never commit .env files.
+- Never commit `.env` files.
+- Keep API keys in a secrets manager.
+- Rotate credentials regularly.
+- Avoid indexing unnecessary sensitive data.
+- Limit access to email and Telegram credentials.
 
-Keep API keys in a secrets manager.
+---
 
-Rotate credentials regularly.
-
-Avoid indexing unnecessary sensitive data.
-
-Limit access to email and Telegram credentials.
-
-Roadmap
+## Roadmap
 
 Potential next steps for the project:
 
-role-based delivery lists
+- role-based delivery lists
+- richer audit logs
+- hybrid search improvements
+- PDF export support
+- dashboard history for past reports
+- smarter fact-checking against raw source data
 
-richer audit logs
+---
 
-hybrid search improvements
-
-PDF export support
-
-dashboard history for past reports
-
-smarter fact-checking against raw source data
-
-Contributing
+## Contributing
 
 Contributions are welcome.
 
-Fork the repository
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Test locally
+5. Submit a pull request with a clear description
 
-Create a feature branch
+---
 
-Make your changes
+## License
 
-Test locally
+MIT License. See `LICENSE` for details.
 
-Submit a pull request with a clear description
+---
 
-License
+## Final Note
 
-MIT License. See LICENSE for details.
-
-Final Note
-
-This project is designed to be more than a demo. It is a practical template for building intelligent reporting systems that combine retrieval, reasoning, visualization, and delivery into one cohesive workflow.i have added a critic in the agent.py which if nit finds relevant info goes to analyst agent and then again writer write and also display the screeenshots in screenshots folder with names report 1,2,3,4,5write the full updatred redame codes in a downloadable files
+This project is designed to be more than a demo. It is a practical template for building intelligent reporting systems that combine retrieval, reasoning, visualization, and delivery into one cohesive workflow.
