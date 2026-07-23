@@ -537,6 +537,9 @@ print(path)
 ---
 
 ## Screenshots
+<p align="center">
+  <img src="screenshots/Report0.png" alt="Report 1" width="700" />
+</p>
 
 <p align="center">
   <img src="screenshots/Report1.png" alt="Report 1" width="700" />
