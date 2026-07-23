@@ -539,23 +539,23 @@ print(path)
 ## Screenshots
 
 <p align="center">
-  <img src="screenshots/Report%20(1).png" alt="Report 1" width="700" />
+  <img src="screenshots/Report1.png" alt="Report 1" width="700" />
 </p>
 
 <p align="center">
-  <img src="screenshots/Report%20(2).png" alt="Report 2" width="700" />
+  <img src="screenshots/Report2.png" alt="Report 2" width="700" />
 </p>
 
 <p align="center">
-  <img src="screenshots/Report%20(3).png" alt="Report 3" width="700" />
+  <img src="screenshots/Report3.png" alt="Report 3" width="700" />
 </p>
 
 <p align="center">
-  <img src="screenshots/Report%20(4).png" alt="Report 4" width="700" />
+  <img src="screenshots/Report4.png" alt="Report 4" width="700" />
 </p>
 
 <p align="center">
-  <img src="screenshots/Report%20(5).png" alt="Report 5" width="700" />
+  <img src="screenshots/Report5.png" alt="Report 5" width="700" />
 </p>
 ```
 
