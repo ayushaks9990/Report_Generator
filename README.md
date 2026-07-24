@@ -86,19 +86,18 @@ The result is a practical reporting engine that turns business data into polishe
 ---
 
 flowchart TB
-
 flowchart TB
 
     subgraph DATA["Business Data Sources"]
-        A1["sales_data.json\n(Sales Transactions)"]
-        A2["marketing_data.json\n(Marketing Campaign Data)"]
+        A1["sales_data.json"]
+        A2["marketing_data.json"]
     end
 
 
     subgraph INGEST["Data Processing Layer"]
         B1["JSON Data Loader"]
-        B2["Schema Validation"]
-        B3["Data Cleaning & Normalization"]
+        B2["Data Validation"]
+        B3["Normalization"]
         B4["Metadata Extraction"]
     end
 
@@ -123,22 +122,22 @@ flowchart TB
 
         E1["User Proxy Agent"]
 
-        E2["Data Analyst Agent\n(Sales + Marketing Analysis)"]
+        E2["Data Analyst Agent"]
 
-        E3["Report Writer Agent\n(Executive Report Generation)"]
+        E3["Report Writer Agent"]
 
-        E4["Critic Agent\n(Quality & Accuracy Validation)"]
+        E4["Critic Agent"]
 
-        E5{"Critic Decision\nApproved?"}
+        E5{"Critic Decision"}
 
     end
 
 
     subgraph LLM["LLM Providers"]
 
-        F1["GROQ LLM"]
+        F1["GROQ"]
 
-        F2["OpenAI Compatible Models"]
+        F2["OpenAI-Compatible Models"]
 
         F3["Fallback Mechanism"]
 
@@ -147,13 +146,13 @@ flowchart TB
 
     subgraph REPORT["Report Generation Layer"]
 
-        G1["Sales Performance Report"]
+        G1["Sales Report"]
 
-        G2["Marketing Campaign Report"]
+        G2["Marketing Report"]
 
         G3["Quarterly Executive Summary"]
 
-        G4["Custom Business Analysis"]
+        G4["Custom Analysis"]
 
     end
 
@@ -162,11 +161,11 @@ flowchart TB
 
         H1["Regional Revenue Charts"]
 
-        H2["Campaign Performance Charts"]
+        H2["Campaign Performance"]
 
-        H3["Growth Trend Analysis"]
+        H3["Growth Trends"]
 
-        H4["Executive Dashboard"]
+        H4["Executive Dashboards"]
 
     end
 
@@ -198,18 +197,17 @@ flowchart TB
 
 
 
-    %% Data Loading
+    %% Data Ingestion
 
     A1 --> B1
 
     A2 --> B1
 
-
     B1 --> B2 --> B3 --> B4
 
 
 
-    %% Vector Pipeline
+    %% Vector Database
 
     B4 --> C1
 
@@ -240,12 +238,12 @@ flowchart TB
     E1 --> E2
 
 
-    %% LLM Interaction
+
+    %% LLM Processing
 
     E2 --> F1
 
     E2 --> F2
-
 
     F1 --> F3
 
@@ -274,10 +272,9 @@ flowchart TB
     E5 -->|Approved| G4
 
 
+    E5 -->|Rejected| E2
 
-    E5 -->|Rejected\nFeedback Loop| E2
-
-    E5 -->|Revision Required| E3
+    E5 -->|Feedback| E3
 
 
 
