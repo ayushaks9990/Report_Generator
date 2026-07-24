@@ -85,7 +85,7 @@ The result is a practical reporting engine that turns business data into polishe
 
 ---
 
-flowchart TB
+```mermaid
 flowchart TB
 
     subgraph DATA["Business Data Sources"]
@@ -111,10 +111,12 @@ flowchart TB
 
 
     subgraph RAG["Retrieval Augmented Generation"]
+
         D1["User Query"]
         D2["Context Retrieval"]
         D3["Prompt Construction"]
         D4["Prompt Truncation"]
+
     end
 
 
@@ -137,7 +139,7 @@ flowchart TB
 
         F1["GROQ"]
 
-        F2["OpenAI-Compatible Models"]
+        F2["OpenAI Compatible Models"]
 
         F3["Fallback Mechanism"]
 
@@ -161,11 +163,11 @@ flowchart TB
 
         H1["Regional Revenue Charts"]
 
-        H2["Campaign Performance"]
+        H2["Campaign Performance Charts"]
 
         H3["Growth Trends"]
 
-        H4["Executive Dashboards"]
+        H4["Executive Dashboard"]
 
     end
 
@@ -197,133 +199,93 @@ flowchart TB
 
 
 
-    %% Data Ingestion
-
     A1 --> B1
-
     A2 --> B1
 
-    B1 --> B2 --> B3 --> B4
 
+    B1 --> B2
+    B2 --> B3
+    B3 --> B4
 
-
-    %% Vector Database
 
     B4 --> C1
-
     C1 --> C2
-
     C2 --> C3
-
     C3 --> C4
 
 
-
-    %% RAG Pipeline
-
     D1 --> D2
-
     C2 --> D2
-
     C4 --> D2
 
-    D2 --> D3 --> D4
+    D2 --> D3
+    D3 --> D4
 
-
-
-    %% Agent Pipeline
 
     D4 --> E1
-
     E1 --> E2
 
 
-
-    %% LLM Processing
-
     E2 --> F1
-
     E2 --> F2
 
     F1 --> F3
-
     F2 --> F3
 
-
-
-    %% Report Creation
 
     F3 --> E3
 
 
-    %% Critic Loop
-
     E3 --> E4
+
 
     E4 --> E5
 
 
     E5 -->|Approved| G1
-
     E5 -->|Approved| G2
-
     E5 -->|Approved| G3
-
     E5 -->|Approved| G4
 
 
     E5 -->|Rejected| E2
-
     E5 -->|Feedback| E3
 
 
 
-    %% Visualization
-
     G1 --> H1
-
     G2 --> H2
-
     G3 --> H3
-
     G4 --> H4
 
 
 
-    %% Delivery
-
     H1 --> I1
-
     H2 --> I1
 
     H3 --> I2
-
     H4 --> I2
 
 
     I1 --> I3
-
     I2 --> I4
 
 
 
-    %% Monitoring
-
     J1 --> G1
-
     J1 --> G2
-
     J1 --> G3
 
 
     G1 --> J2
-
     G2 --> J2
-
     G3 --> J2
 
 
-    J2 --> J3 --> J4
+    J2 --> J3
+    J3 --> J4
+
+```
 ## Project Structure
 
 ```text
