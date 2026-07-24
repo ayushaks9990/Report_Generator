@@ -87,19 +87,21 @@ The result is a practical reporting engine that turns business data into polishe
 
 flowchart TB
 
+flowchart TB
+
     subgraph DATA["Business Data Sources"]
         A1["sales_data.json\n(Sales Transactions)"]
         A2["marketing_data.json\n(Marketing Campaign Data)"]
-        A3["Additional CSV / JSON Files"]
-        A4["External APIs"]
     end
 
+
     subgraph INGEST["Data Processing Layer"]
-        B1["Data Loader\n(JSON Parser)"]
-        B2["Data Validation"]
-        B3["Data Normalization"]
+        B1["JSON Data Loader"]
+        B2["Schema Validation"]
+        B3["Data Cleaning & Normalization"]
         B4["Metadata Extraction"]
     end
+
 
     subgraph VECTOR["Retrieval Layer"]
         C1["Sentence Transformer Embeddings"]
@@ -108,6 +110,7 @@ flowchart TB
         C4["Metadata Filtering"]
     end
 
+
     subgraph RAG["Retrieval Augmented Generation"]
         D1["User Query"]
         D2["Context Retrieval"]
@@ -115,81 +118,119 @@ flowchart TB
         D4["Prompt Truncation"]
     end
 
+
     subgraph AGENTS["Multi-Agent Intelligence Layer"]
 
         E1["User Proxy Agent"]
 
-        E2["Data Analyst Agent\n(Data Analysis + Insights)"]
+        E2["Data Analyst Agent\n(Sales + Marketing Analysis)"]
 
-        E3["Report Writer Agent\n(Report Generation)"]
+        E3["Report Writer Agent\n(Executive Report Generation)"]
 
-        E4["Critic Agent\n(Quality Check + Validation)"]
+        E4["Critic Agent\n(Quality & Accuracy Validation)"]
 
         E5{"Critic Decision\nApproved?"}
 
     end
 
+
     subgraph LLM["LLM Providers"]
-        F1["GROQ"]
-        F2["OpenAI-Compatible Models"]
+
+        F1["GROQ LLM"]
+
+        F2["OpenAI Compatible Models"]
+
         F3["Fallback Mechanism"]
+
     end
+
 
     subgraph REPORT["Report Generation Layer"]
+
         G1["Sales Performance Report"]
+
         G2["Marketing Campaign Report"]
+
         G3["Quarterly Executive Summary"]
+
         G4["Custom Business Analysis"]
+
     end
+
 
     subgraph VIS["Visualization Engine"]
+
         H1["Regional Revenue Charts"]
+
         H2["Campaign Performance Charts"]
+
         H3["Growth Trend Analysis"]
-        H4["Executive Dashboards"]
+
+        H4["Executive Dashboard"]
+
     end
+
 
     subgraph DELIVERY["Distribution Layer"]
+
         I1["HTML Email Delivery"]
+
         I2["Telegram Delivery"]
+
         I3["Report Attachments"]
+
         I4["Embedded Charts"]
+
     end
+
 
     subgraph OPS["Operations & Monitoring"]
+
         J1["Scheduler"]
+
         J2["Logging"]
+
         J3["Run History"]
+
         J4["Cleanup Service"]
+
     end
 
 
-    %% Data Ingestion
+
+    %% Data Loading
 
     A1 --> B1
+
     A2 --> B1
-    A3 --> B1
-    A4 --> B1
+
 
     B1 --> B2 --> B3 --> B4
+
 
 
     %% Vector Pipeline
 
     B4 --> C1
+
     C1 --> C2
+
     C2 --> C3
-    C2 --> C4
+
+    C3 --> C4
+
 
 
     %% RAG Pipeline
 
     D1 --> D2
 
-    C3 --> D2
+    C2 --> D2
+
     C4 --> D2
 
     D2 --> D3 --> D4
+
 
 
     %% Agent Pipeline
@@ -199,203 +240,93 @@ flowchart TB
     E1 --> E2
 
 
-    %% Analyst uses retrieved business context
+    %% LLM Interaction
 
     E2 --> F1
+
     E2 --> F2
 
+
     F1 --> F3
+
     F2 --> F3
 
 
-    %% Report Generation Agent Flow
+
+    %% Report Creation
 
     F3 --> E3
 
+
+    %% Critic Loop
+
     E3 --> E4
-
-
-    %% Critic Evaluation Loop
 
     E4 --> E5
 
 
     E5 -->|Approved| G1
+
     E5 -->|Approved| G2
+
     E5 -->|Approved| G3
+
     E5 -->|Approved| G4
 
 
-    E5 -->|Rejected\nSend Feedback| E2
-    E5 -->|Regenerate Report| E3
+
+    E5 -->|Rejected\nFeedback Loop| E2
+
+    E5 -->|Revision Required| E3
 
 
-    %% Report Outputs
+
+    %% Visualization
 
     G1 --> H1
+
     G2 --> H2
+
     G3 --> H3
+
     G4 --> H4
 
 
-    %% Distribution
+
+    %% Delivery
 
     H1 --> I1
+
     H2 --> I1
 
     H3 --> I2
+
     H4 --> I2
 
+
     I1 --> I3
+
     I2 --> I4
+
 
 
     %% Monitoring
 
     J1 --> G1
+
     J1 --> G2
+
     J1 --> G3
 
+
     G1 --> J2
+
     G2 --> J2
+
     G3 --> J2
 
+
     J2 --> J3 --> J4
-## End-to-End Execution Flow
-
-sequenceDiagram
-    participant User
-    participant Scheduler
-    participant Streamlit
-    participant DataLoader
-    participant Retriever
-    participant ChromaDB
-    participant Analyst
-    participant Writer
-    participant Critic
-    participant LLM
-    participant Charts
-    participant Email
-    participant Telegram
-    participant Logger
-
-
-    %% Data Loading
-
-    Scheduler->>DataLoader: Load business data
-
-    DataLoader->>DataLoader: Read sales_data.json
-
-    DataLoader->>DataLoader: Read marketing_data.json
-
-    DataLoader->>DataLoader: Validate + Normalize Data
-
-    DataLoader->>ChromaDB: Store embeddings
-
-
-    %% User Request
-
-    User->>Streamlit: Generate report
-
-
-    %% Retrieval Pipeline
-
-    Streamlit->>Retriever: Request relevant business context
-
-    Retriever->>ChromaDB: Semantic search
-
-    ChromaDB-->>Retriever: Top relevant documents
-
-    Retriever-->>Streamlit: Retrieved context
-
-
-    %% Analyst Agent
-
-    Streamlit->>Analyst: Analyze sales + marketing context
-
-    Analyst->>LLM: Business analysis prompt
-
-    LLM-->>Analyst: Insights + recommendations
-
-
-    %% Writer Agent
-
-    Analyst->>Writer: Send analytical findings
-
-    Writer->>LLM: Executive report generation prompt
-
-    LLM-->>Writer: Generated report draft
-
-
-    %% Critic Agent
-
-    Writer->>Critic: Submit report for validation
-
-    Critic->>LLM: Quality evaluation prompt
-
-    LLM-->>Critic: Validation response
-
-
-    alt Report Approved
-
-        Critic-->>Writer: Approved Report
-
-        Writer->>Charts: Generate graphs and dashboards
-
-        Charts-->>Writer: PNG charts
-
-
-        Writer->>Email: Prepare HTML email report
-
-        Writer->>Telegram: Prepare report attachments
-
-
-        Email-->>User: Executive report delivered
-
-        Telegram-->>User: Report files delivered
-
-
-        Writer->>Logger: Store successful execution
-
-
-    else Report Rejected
-
-
-        Critic-->>Analyst: Provide correction feedback
-
-        Critic-->>Writer: Request improvements
-
-
-        Analyst->>LLM: Refine analysis using feedback
-
-        LLM-->>Analyst: Updated insights
-
-
-        Analyst->>Writer: Send revised findings
-
-
-        Writer->>LLM: Regenerate report
-
-        LLM-->>Writer: Improved report
-
-
-        Writer->>Critic: Re-submit updated report
-
-
-        Critic->>LLM: Validate again
-
-
-    end
-
-
-    %% Monitoring
-
-    Logger->>Logger: Save run history
-
-    Logger->>Logger: Cleanup old reports
-
----
-
 ## Project Structure
 
 ```text
