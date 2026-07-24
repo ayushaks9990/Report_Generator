@@ -85,22 +85,19 @@ The result is a practical reporting engine that turns business data into polishe
 
 ---
 
-## System Architecture
-
-```mermaid
 flowchart TB
 
     subgraph DATA["Business Data Sources"]
-        A1["Sales Dataset"]
-        A2["Marketing Dataset"]
-        A3["CSV / JSON Files"]
+        A1["sales_data.json\n(Sales Transactions)"]
+        A2["marketing_data.json\n(Marketing Campaign Data)"]
+        A3["Additional CSV / JSON Files"]
         A4["External APIs"]
     end
 
     subgraph INGEST["Data Processing Layer"]
-        B1["Data Loader"]
+        B1["Data Loader\n(JSON Parser)"]
         B2["Data Validation"]
-        B3["Normalization"]
+        B3["Data Normalization"]
         B4["Metadata Extraction"]
     end
 
@@ -119,9 +116,17 @@ flowchart TB
     end
 
     subgraph AGENTS["Multi-Agent Intelligence Layer"]
+
         E1["User Proxy Agent"]
-        E2["Data Analyst Agent"]
-        E3["Report Writer Agent"]
+
+        E2["Data Analyst Agent\n(Data Analysis + Insights)"]
+
+        E3["Report Writer Agent\n(Report Generation)"]
+
+        E4["Critic Agent\n(Quality Check + Validation)"]
+
+        E5{"Critic Decision\nApproved?"}
+
     end
 
     subgraph LLM["LLM Providers"]
@@ -131,16 +136,16 @@ flowchart TB
     end
 
     subgraph REPORT["Report Generation Layer"]
-        G1["Sales Report"]
-        G2["Marketing Report"]
+        G1["Sales Performance Report"]
+        G2["Marketing Campaign Report"]
         G3["Quarterly Executive Summary"]
-        G4["Custom Analysis"]
+        G4["Custom Business Analysis"]
     end
 
     subgraph VIS["Visualization Engine"]
         H1["Regional Revenue Charts"]
-        H2["Campaign Performance"]
-        H3["Growth Trends"]
+        H2["Campaign Performance Charts"]
+        H3["Growth Trend Analysis"]
         H4["Executive Dashboards"]
     end
 
@@ -158,85 +163,236 @@ flowchart TB
         J4["Cleanup Service"]
     end
 
+
+    %% Data Ingestion
+
     A1 --> B1
     A2 --> B1
     A3 --> B1
     A4 --> B1
 
     B1 --> B2 --> B3 --> B4
-    B4 --> C1 --> C2 --> C3
+
+
+    %% Vector Pipeline
+
+    B4 --> C1
+    C1 --> C2
+    C2 --> C3
+    C2 --> C4
+
+
+    %% RAG Pipeline
 
     D1 --> D2
-    C2 --> D2
+
+    C3 --> D2
     C4 --> D2
+
     D2 --> D3 --> D4
 
-    D4 --> E1 --> E2 --> E3
+
+    %% Agent Pipeline
+
+    D4 --> E1
+
+    E1 --> E2
+
+
+    %% Analyst uses retrieved business context
 
     E2 --> F1
     E2 --> F2
+
     F1 --> F3
     F2 --> F3
 
-    F3 --> G1
-    F3 --> G2
-    F3 --> G3
-    F3 --> G4
+
+    %% Report Generation Agent Flow
+
+    F3 --> E3
+
+    E3 --> E4
+
+
+    %% Critic Evaluation Loop
+
+    E4 --> E5
+
+
+    E5 -->|Approved| G1
+    E5 -->|Approved| G2
+    E5 -->|Approved| G3
+    E5 -->|Approved| G4
+
+
+    E5 -->|Rejected\nSend Feedback| E2
+    E5 -->|Regenerate Report| E3
+
+
+    %% Report Outputs
 
     G1 --> H1
     G2 --> H2
     G3 --> H3
     G4 --> H4
 
+
+    %% Distribution
+
     H1 --> I1
     H2 --> I1
+
     H3 --> I2
     H4 --> I2
+
+    I1 --> I3
+    I2 --> I4
+
+
+    %% Monitoring
 
     J1 --> G1
     J1 --> G2
     J1 --> G3
+
     G1 --> J2
     G2 --> J2
     G3 --> J2
+
     J2 --> J3 --> J4
-```
-
----
-
 ## End-to-End Execution Flow
 
-```mermaid
 sequenceDiagram
     participant User
+    participant Scheduler
     participant Streamlit
+    participant DataLoader
     participant Retriever
     participant ChromaDB
     participant Analyst
     participant Writer
+    participant Critic
     participant LLM
     participant Charts
     participant Email
     participant Telegram
+    participant Logger
+
+
+    %% Data Loading
+
+    Scheduler->>DataLoader: Load business data
+
+    DataLoader->>DataLoader: Read sales_data.json
+
+    DataLoader->>DataLoader: Read marketing_data.json
+
+    DataLoader->>DataLoader: Validate + Normalize Data
+
+    DataLoader->>ChromaDB: Store embeddings
+
+
+    %% User Request
 
     User->>Streamlit: Generate report
-    Streamlit->>Retriever: Request context
+
+
+    %% Retrieval Pipeline
+
+    Streamlit->>Retriever: Request relevant business context
+
     Retriever->>ChromaDB: Semantic search
+
     ChromaDB-->>Retriever: Top relevant documents
+
     Retriever-->>Streamlit: Retrieved context
-    Streamlit->>Analyst: Analyze data
+
+
+    %% Analyst Agent
+
+    Streamlit->>Analyst: Analyze sales + marketing context
+
     Analyst->>LLM: Business analysis prompt
-    LLM-->>Analyst: Insights
-    Analyst->>Writer: Findings
-    Writer->>LLM: Executive report prompt
-    LLM-->>Writer: Final report
-    Writer->>Charts: Generate visualizations
-    Charts-->>Writer: PNG charts
-    Writer->>Email: Send report
-    Writer->>Telegram: Send files
-    Email-->>User: Executive email
-    Telegram-->>User: Report delivery
-```
+
+    LLM-->>Analyst: Insights + recommendations
+
+
+    %% Writer Agent
+
+    Analyst->>Writer: Send analytical findings
+
+    Writer->>LLM: Executive report generation prompt
+
+    LLM-->>Writer: Generated report draft
+
+
+    %% Critic Agent
+
+    Writer->>Critic: Submit report for validation
+
+    Critic->>LLM: Quality evaluation prompt
+
+    LLM-->>Critic: Validation response
+
+
+    alt Report Approved
+
+        Critic-->>Writer: Approved Report
+
+        Writer->>Charts: Generate graphs and dashboards
+
+        Charts-->>Writer: PNG charts
+
+
+        Writer->>Email: Prepare HTML email report
+
+        Writer->>Telegram: Prepare report attachments
+
+
+        Email-->>User: Executive report delivered
+
+        Telegram-->>User: Report files delivered
+
+
+        Writer->>Logger: Store successful execution
+
+
+    else Report Rejected
+
+
+        Critic-->>Analyst: Provide correction feedback
+
+        Critic-->>Writer: Request improvements
+
+
+        Analyst->>LLM: Refine analysis using feedback
+
+        LLM-->>Analyst: Updated insights
+
+
+        Analyst->>Writer: Send revised findings
+
+
+        Writer->>LLM: Regenerate report
+
+        LLM-->>Writer: Improved report
+
+
+        Writer->>Critic: Re-submit updated report
+
+
+        Critic->>LLM: Validate again
+
+
+    end
+
+
+    %% Monitoring
+
+    Logger->>Logger: Save run history
+
+    Logger->>Logger: Cleanup old reports
 
 ---
 
